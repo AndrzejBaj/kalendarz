@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Kalendarz Rezerwacji - Miesięczny</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 10px;
+    }
+    .calendar-wrapper {
+      max-width: 100%;
+      overflow-x: auto;
+    }
+    table {
+      border-collapse: collapse;
+      min-width: 720px;
+      margin-bottom: 40px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      text-align: center;
+      padding: 4px;
+      font-size: 12px;
+    }
+    th {
+      background-color: #f0f0f0;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    .occupied {
+      background-color: #ff6b6b;
+      color: white;
+      font-weight: bold;
+    }
+    h3 {
+      margin-top: 30px;
+      font-size: 18px;
+    }
+  </style>
+</head>
+<body>
+  <h2>Kalendarz Rezerwacji (podział na miesiące)</h2>
+  <div id="kalendarz" class="calendar-wrapper"></div>
+
+  <script>
+    google.charts.load('current', {packages: ['table']});
+    google.charts.setOnLoadCallback(drawCalendar);
+
+    function drawCalendar() {
+      const query = new google.visualization.Query('https://docs.google.com/spreadsheets/d/1ktIEbiKcIvKHN3N8hkBz5_1UNDJa5a78xYNuf4hoWN4/gviz/tq?sheet=Rezerwacje');
+      query.send(handleQueryResponse);
+    }
+
+    function formatDate(d) {
+      const date = new Date(d);
+      return date.toISOString().split('T')[0];
+    }
+
+    function getMonthKey(d) {
+      const date = new Date(d);
+      return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+    }
+
+    function handleQueryResponse(response) {
+      const data = response.getDataTable();
+      const rows = data.getNumberOfRows();
+      const rezerwacje = [];
+
+      const datySet = new Set();
+      const domkiSet = new Set();
+      const monthsMap = {};
+
+      for (let i = 0; i < rows; i++) {
+        const dataOd = new Date(data.getValue(i, 0));
+        const dataDo = new Date(data.getValue(i, 1));
+        const domek = data.getValue(i, 2);
+        const nazwisko = "zajęty";
+
+        domkiSet.add(domek);
+        for (let d = new Date(dataOd); d < dataDo; d.setDate(d.getDate() + 1)) {
+          const dzien = formatDate(d);
+          const monthKey = getMonthKey(d);
+          datySet.add(dzien);
+          if (!monthsMap[monthKey]) monthsMap[monthKey] = [];
+          monthsMap[monthKey].push({ domek, dzien, nazwisko });
+        }
+      }
+
+      const domki = Array.from(domkiSet).sort();
+
+      const kalendarzDiv = document.getElementById('kalendarz');
+      kalendarzDiv.innerHTML = '';
+
+      const sortedMonths = Object.keys(monthsMap).sort();
+
+      sortedMonths.forEach(month => {
+        const monthName = new Date(month + '-01').toLocaleString('pl-PL', { month: 'long', year: 'numeric' });
+        const miesieczneRezerwacje = monthsMap[month];
+        const dniSet = new Set(miesieczneRezerwacje.map(r => r.dzien));
+        const dni = Array.from(dniSet).sort();
+
+        let html = `<h3>${monthName}</h3><table><thead><tr><th>Domek</th>`;
+        dni.forEach(d => html += `<th>${d.slice(8)}</th>`);
+        html += '</tr></thead><tbody>';
+
+        domki.forEach(domek => {
+          html += `<tr><td>${domek}</td>`;
+          dni.forEach(dzien => {
+            const wpis = miesieczneRezerwacje.find(r => r.domek === domek && r.dzien === dzien);
+            html += wpis
+              ? `<td class="occupied">${wpis.nazwisko}</td>`
+              : `<td></td>`;
+          });
+          html += '</tr>';
+        });
+
+        html += '</tbody></table>';
+        kalendarzDiv.innerHTML += html;
+      });
+    }
+  </script>
+</body>
+</html>
