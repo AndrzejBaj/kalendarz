@@ -270,7 +270,7 @@
             if (klasy.size === 1) klasa = [...klasy][0];
             cellClass += cellClass ? ' ' + klasa : klasa;
 
-            let tekst = wpisy.map(w => `<p>Zajęte</p><p>${Imię i Nazwisko}</p>`).join('');
+            let tekst = wpisy.map(w => `<p>Zajęte</p><p>${w.inicjaly}</p>`).join('');
             html += `<td class="${cellClass}">${tekst}</td>`;
           } else {
             html += `<td class="${cellClass}"></td>`;
@@ -305,4 +305,3 @@
   </script>
 </body>
 </html>
-
