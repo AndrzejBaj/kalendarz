@@ -6,20 +6,226 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
   <style>
-    /* ... (pozostałe style pozostają bez zmian) ... */
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0 auto;
+      padding: 20px;
+      max-width: 100%;
+      box-sizing: border-box;
+    }
+
+    #controls {
+      text-align: center;
+      margin-bottom: 15px;
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    button {
+      padding: 8px 14px;
+      font-size: 16px;
+      border: none;
+      background-color: #007bff;
+      color: white;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    #current-month {
+      font-size: 18px;
+      font-weight: bold;
+      margin: 0 10px;
+      line-height: 5px;
+    }
+
+    #kalendarz-wrapper {
+      overflow-x: auto;
+      max-width: 100%;
+      position: relative;
+    }
+
+    table {
+      border-collapse: collapse;
+      margin: 0 auto;
+      width: max-content;
+      min-width: 100%;
+    }
+
+    th, td {
+      border: 1px solid #ccc;
+      text-align: center;
+      padding: 6px;
+      white-space: nowrap;
+      font-size: 14px;
+      vertical-align: top;
+    }
+
+    th {
+      background-color: #f0f0f0;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+
+    /* Zablokowana pierwsza kolumna */
+    th:first-child,
+    td:first-child {
+      position: sticky;
+      left: 0;
+      z-index: 1;
+      background-color: #f0f0f0;
+    }
+
+    /* Domy z dodatkowym tłem */
+    td:first-child {
+      background-color: white;
+      z-index: 1;
+    }
+
+    .weekend {
+      background-color: #f9f9f9;
+    }
+
+    .occupied-full {
+      background-color: #ff4d4d;
+      color: white;
+      font-weight: bold;
+    }
+
+    .occupied-am {
+      background: linear-gradient(to bottom, #ffcccc 50%, white 50%);
+      color: #b30000;
+      font-weight: bold;
+    }
+
+    .occupied-pm {
+      background: linear-gradient(to top, #ffcccc 50%, white 50%);
+      color: #b30000;
+      font-weight: bold;
+    }
+
+    .multi {
+      background: linear-gradient(to bottom, #ffcccc 50%, #ffe6e6 50%);
+      color: #b30000;
+      font-weight: bold;
+    }
+
+    p {
+      margin: 0;
+      line-height: 1.2;
+    }
 
     .name {
-      font-size: 0.8em;  /* Mniejsza czcionka dla imienia i nazwiska */
+      font-size: 0.8em;
       font-weight: normal;
       margin-top: 2px;
+    }
+
+    @media (max-width: 768px) {
+      th, td {
+        font-size: 12px;
+        padding: 4px;
+      }
+      button {
+        font-size: 14px;
+        padding: 6px 10px;
+      }
     }
   </style>
 </head>
 <body>
-  <!-- ... (reszta kodu HTML pozostaje bez zmian) ... -->
+  <div id="controls">
+    <button id="prev-month">&lt; Poprzedni</button>
+    <span id="current-month"></span>
+    <button id="next-month">Następny &gt;</button>
+  </div>
+
+  <div id="kalendarz-wrapper">
+    <div id="kalendarz"></div>
+  </div>
 
   <script>
-    // ... (pozostałe funkcje pozostają bez zmian aż do renderCalendar) ...
+    google.charts.load('current', { packages: ['corechart', 'table'] });
+    google.charts.setOnLoadCallback(drawCalendar);
+
+    let currentYear, currentMonth;
+    let rezerwacjeMap = {};
+
+    function parseDateFromSheet(dateStr) {
+      const date = new Date(dateStr);
+      return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    }
+
+    function formatDateKey(date) {
+      const year = date.getUTCFullYear();
+      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(date.getUTCDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    function isWeekend(date) {
+      const day = date.getUTCDay();
+      return day === 0 || day === 6;
+    }
+
+    const monthNames = ["Styczeń","Luty","Marzec","Kwiecień","Maj","Czerwiec","Lipiec","Sierpień","Wrzesień","Październik","Listopad","Grudzień"];
+
+    function drawCalendar() {
+      const query = new google.visualization.Query('https://docs.google.com/spreadsheets/d/1ktIEbiKcIvKHN3N8hkBz5_1UNDJa5a78xYNuf4hoWN4/gviz/tq?sheet=Rezerwacje');
+      query.send(handleQueryResponse);
+    }
+
+    function handleQueryResponse(response) {
+      if (response.isError()) {
+        document.getElementById('kalendarz').innerHTML = 'Błąd w pobieraniu danych: ' + response.getMessage();
+        return;
+      }
+
+      const data = response.getDataTable();
+      const rows = data.getNumberOfRows();
+      rezerwacjeMap = {};
+
+      for (let i = 0; i < rows; i++) {
+        const start = parseDateFromSheet(data.getValue(i, 0));
+        const end = parseDateFromSheet(data.getValue(i, 1));
+        const domek = data.getValue(i, 2);
+        const osoba = data.getValue(i, 3);
+
+        const dStart = formatDateKey(start);
+        const dEnd = formatDateKey(end);
+
+        addToMap(domek, dStart, 'pm', osoba);
+
+        const tempDate = new Date(start);
+        tempDate.setUTCDate(tempDate.getUTCDate() + 1);
+        
+        while (tempDate < end) {
+          const fullDayKey = formatDateKey(tempDate);
+          addToMap(domek, fullDayKey, 'full', osoba);
+          tempDate.setUTCDate(tempDate.getUTCDate() + 1);
+        }
+
+        addToMap(domek, dEnd, 'am', osoba);
+      }
+
+      const now = new Date();
+      currentYear = now.getFullYear();
+      currentMonth = now.getMonth();
+      renderCalendar();
+      setupNavigation();
+    }
+
+    function addToMap(domek, dzien, typ, osoba) {
+      const key = `${domek}_${dzien}`;
+      if (!rezerwacjeMap[key]) rezerwacjeMap[key] = [];
+      rezerwacjeMap[key].push({ typ, osoba });
+    }
 
     function renderCalendar() {
       const kalendarzDiv = document.getElementById('kalendarz');
@@ -82,52 +288,24 @@
       kalendarzDiv.innerHTML = html;
     }
 
-    // ... (reszta kodu pozostaje bez zmian) ...
-
-    function handleQueryResponse(response) {
-      if (response.isError()) {
-        document.getElementById('kalendarz').innerHTML = 'Błąd w pobieraniu danych: ' + response.getMessage();
-        return;
-      }
-
-      const data = response.getDataTable();
-      const rows = data.getNumberOfRows();
-      rezerwacjeMap = {};
-
-      for (let i = 0; i < rows; i++) {
-        const start = parseDateFromSheet(data.getValue(i, 0));
-        const end = parseDateFromSheet(data.getValue(i, 1));
-        const domek = data.getValue(i, 2);
-        const osoba = data.getValue(i, 3);  // Teraz przechowujemy całe imię i nazwisko
-
-        const dStart = formatDateKey(start);
-        const dEnd = formatDateKey(end);
-
-        addToMap(domek, dStart, 'pm', osoba);  // Przekazujemy całe imię i nazwisko
-
-        const tempDate = new Date(start);
-        tempDate.setUTCDate(tempDate.getUTCDate() + 1);
-        
-        while (tempDate < end) {
-          const fullDayKey = formatDateKey(tempDate);
-          addToMap(domek, fullDayKey, 'full', osoba);
-          tempDate.setUTCDate(tempDate.getUTCDate() + 1);
+    function setupNavigation() {
+      document.getElementById('prev-month').onclick = () => {
+        currentMonth--;
+        if (currentMonth < 0) {
+          currentMonth = 11;
+          currentYear--;
         }
+        renderCalendar();
+      };
 
-        addToMap(domek, dEnd, 'am', osoba);
-      }
-
-      const now = new Date();
-      currentYear = now.getFullYear();
-      currentMonth = now.getMonth();
-      renderCalendar();
-      setupNavigation();
-    }
-
-    function addToMap(domek, dzien, typ, osoba) {  // Zmieniamy parametr z inicjaly na osoba
-      const key = `${domek}_${dzien}`;
-      if (!rezerwacjeMap[key]) rezerwacjeMap[key] = [];
-      rezerwacjeMap[key].push({ typ, osoba });  // Teraz przechowujemy pełne imię i nazwisko
+      document.getElementById('next-month').onclick = () => {
+        currentMonth++;
+        if (currentMonth > 11) {
+          currentMonth = 0;
+          currentYear++;
+        }
+        renderCalendar();
+      };
     }
   </script>
 </body>
