@@ -8,10 +8,11 @@
   <style>
     body {
       font-family: Arial, sans-serif;
-      margin: 0 auto;
-      padding: 20px;
-      max-width: 100%;
+      margin: 0;
+      padding: 10px;
+      width: 100%;
       box-sizing: border-box;
+      overflow-x: hidden;
     }
 
     #controls {
@@ -21,71 +22,45 @@
       justify-content: center;
       flex-wrap: wrap;
       gap: 10px;
-    }
-
-    button {
-      padding: 8px 14px;
-      font-size: 16px;
-      border: none;
-      background-color: #007bff;
-      color: white;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-
-    button:hover {
-      background-color: #0056b3;
-    }
-
-    #current-month {
-      font-size: 18px;
-      font-weight: bold;
-      margin: 0 10px;
-      line-height: 5px;
+      width: 100%;
     }
 
     #kalendarz-wrapper {
+      width: 100%;
       overflow-x: auto;
-      max-width: 100%;
-      position: relative;
+      -webkit-overflow-scrolling: touch;
     }
 
     table {
+      width: 100%;
       border-collapse: collapse;
-      margin: 0 auto;
-      width: max-content;
-      min-width: 100%;
+      table-layout: fixed;
     }
 
     th, td {
       border: 1px solid #ccc;
       text-align: center;
       padding: 6px;
-      white-space: nowrap;
       font-size: 14px;
       vertical-align: top;
+      word-wrap: break-word;
+    }
+
+    th:first-child,
+    td:first-child {
+      width: 100px; /* Stała szerokość dla kolumny z nazwami domków */
+      position: sticky;
+      left: 0;
+      z-index: 2;
+      background-color: #f0f0f0;
     }
 
     th {
       background-color: #f0f0f0;
       position: sticky;
       top: 0;
-      z-index: 2;
-    }
-
-    /* Zablokowana pierwsza kolumna */
-    th:first-child,
-    td:first-child {
-      position: sticky;
-      left: 0;
       z-index: 1;
-      background-color: #f0f0f0;
-    }
-
-    /* Domy z dodatkowym tłem */
-    td:first-child {
-      background-color: white;
-      z-index: 1;
+      min-width: 40px;
     }
 
     .weekend {
@@ -116,15 +91,11 @@
       font-weight: bold;
     }
 
-    p {
-      margin: 0;
-      line-height: 1.2;
-    }
-
     .name {
       font-size: 0.8em;
       font-weight: normal;
       margin-top: 2px;
+      line-height: 1.2;
     }
 
     @media (max-width: 768px) {
@@ -132,9 +103,10 @@
         font-size: 12px;
         padding: 4px;
       }
-      button {
-        font-size: 14px;
-        padding: 6px 10px;
+      
+      th:first-child,
+      td:first-child {
+        width: 80px; /* Węższa kolumna na mobile */
       }
     }
   </style>
@@ -252,11 +224,15 @@
       }
 
       let html = '<table><thead><tr><th>Domek</th>';
+      
+      // Obliczanie optymalnej szerokości dla kolumn z dniami
+      const dayColumnWidth = Math.min(60, (window.innerWidth - 120) / daty.length);
+      
       daty.forEach(d => {
         const date = new Date(d + 'T00:00:00Z');
         const dayNumber = date.getUTCDate();
         const isWeekendDay = isWeekend(date);
-        html += `<th class="${isWeekendDay ? 'weekend' : ''}">${dayNumber}</th>`;
+        html += `<th class="${isWeekendDay ? 'weekend' : ''}" style="min-width: ${dayColumnWidth}px">${dayNumber}</th>`;
       });
       html += '</tr></thead><tbody>';
 
@@ -275,7 +251,7 @@
             if (klasy.size === 1) klasa = [...klasy][0];
             cellClass += cellClass ? ' ' + klasa : klasa;
 
-            let tekst = wpisy.map(w => `<p>Zajęte</p><p class="name">${w.osoba}</p>`).join('');
+            let tekst = wpisy.map(w => `<div>Zajęte</div><div class="name">${w.osoba}</div>`).join('');
             html += `<td class="${cellClass}">${tekst}</td>`;
           } else {
             html += `<td class="${cellClass}"></td>`;
@@ -286,6 +262,9 @@
 
       html += '</tbody></table>';
       kalendarzDiv.innerHTML = html;
+      
+      // Dostosowanie szerokości po renderowaniu
+      window.dispatchEvent(new Event('resize'));
     }
 
     function setupNavigation() {
@@ -306,6 +285,13 @@
         }
         renderCalendar();
       };
+
+      // Reagowanie na zmianę rozmiaru okna
+      window.addEventListener('resize', function() {
+        if (document.getElementById('kalendarz').innerHTML !== '') {
+          renderCalendar();
+        }
+      });
     }
   </script>
 </body>
