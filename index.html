@@ -423,11 +423,11 @@
             
             cellClass += cellClass ? ' ' + klasa : klasa;
 
-            let tekst = wpisy.map(w => `<div>Zajęte</div><div class="name">${w.osoba}</div>`).join('');
-            html += `<td class="${cellClass}">${tekst}</td>`;
+            let tekst = wpisy.map(w => `<div class="name">${w.osoba}</div>`).join('');
+html += `<td class="${cellClass}">${tekst}</td>`;
           } else {
             cellClass += cellClass ? ' available' : 'available';
-            html += `<td class="${cellClass}">Wolne</td>`;
+            html += `<td class="${cellClass}"></td>`;
           }
         });
         html += '</tr>';
